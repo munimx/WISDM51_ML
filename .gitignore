@@ -8,5 +8,16 @@ info.txt
 # Ignore activity key
 activity_key.txt
 
+# Ignore CSV files
+*.csv
+
 # Ignore macOS system files
 .DS_Store
+
+# Ignore Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
