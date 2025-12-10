@@ -5,5 +5,8 @@ raw/
 info.txt
 *.pdf
 
+# Ignore activity key
+activity_key.txt
+
 # Ignore macOS system files
 .DS_Store
