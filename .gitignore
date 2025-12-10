@@ -1,0 +1,6 @@
+# Ignore raw data folder
+raw/
+
+# Ignore info and PDF files
+info.txt
+*.pdf
