@@ -4,3 +4,6 @@ raw/
 # Ignore info and PDF files
 info.txt
 *.pdf
+
+# Ignore macOS system files
+.DS_Store
