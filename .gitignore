@@ -1,15 +1,19 @@
 # Ignore raw data folder
 raw/
 
-# Ignore info and PDF files
-info.txt
-*.pdf
+# Ignore output files
+output/
+pipeline/output/
+pipeline/data/
 
-# Ignore activity key
-activity_key.txt
-
-# Ignore CSV files
+# Ignore CSV, PDF, and PNG files
 *.csv
+*.pdf
+*.png
+
+# Ignore info and activity key files
+info.txt
+activity_key.txt
 
 # Ignore macOS system files
 .DS_Store
