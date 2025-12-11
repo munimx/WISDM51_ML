@@ -5,8 +5,9 @@ Pipeline flow:
 1. Load raw sensor data from all devices/sensors
 2. Clean data (handle NaN, inf, stuck sensors)
 3. Create sliding windows with class consistency validation
-4. Extract handcrafted time-domain features
-5. Save final feature matrix as CSV
+4. Apply 3 scaling methods (MinMax, Standard, Robust)
+5. Extract handcrafted features from each scaled dataset
+6. Save 3 feature matrices as CSV (one per scaling method)
 
 Usage:
     python main.py
@@ -29,6 +30,7 @@ from utils import (
 )
 from cleaning import clean_data, get_cleaning_report
 from windowing import create_windows, get_windowing_report
+from scaling import scale_windowed_data_pipeline, get_scaling_report
 from features import extract_all_features, get_feature_extraction_report
 
 logger = setup_logging()
@@ -44,7 +46,7 @@ def run_pipeline():
     try:
         # ======================== SETUP ========================
         logger.info("=" * 80)
-        logger.info("WISDM51 DATA PROCESSING PIPELINE")
+        logger.info("WISDM51 DATA PROCESSING PIPELINE WITH SCALING")
         logger.info("=" * 80)
         
         # Ensure output directories exist
@@ -110,46 +112,89 @@ def run_pipeline():
         get_windowing_report(df_cleaned, df_windowed)
         logger.info(f"Time elapsed: {time() - start_time:.2f}s\n")
         
-        # ======================== STEP 4: EXTRACT FEATURES ========================
-        logger.info("[STEP 4] Extracting handcrafted features...")
+        # ======================== STEP 4: APPLY SCALING ========================
+        logger.info("[STEP 4] Applying data scaling (MinMax, Standard, Robust)...")
         start_time = time()
         
         try:
-            df_features = extract_all_features(
-                df_windowed,
-                features_to_compute=TIME_DOMAIN_FEATURES,
+            scaled_paths = scale_windowed_data_pipeline(
+                windowed_csv=WINDOWED_CSV,
+                output_dir=DATA_DIR,
                 window_samples=WINDOW_SAMPLES,
-                use_fast=True  # Use optimized vectorized method
+                create_visualizations=True
             )
         except Exception as e:
-            logger.error(f"Feature extraction failed: {e}")
+            logger.error(f"Scaling failed: {e}")
             logger.exception(e)
             return False
         
-        feature_time = time() - start_time
+        get_scaling_report(scaled_paths)
+        logger.info(f"Time elapsed: {time() - start_time:.2f}s\n")
         
-        if df_features.empty:
-            logger.error("No features extracted!")
-            return False
+        # ======================== STEP 5: EXTRACT FEATURES FROM SCALED DATA ========================
+        logger.info("[STEP 5] Extracting features from scaled data...")
         
-        # Save final feature matrix
-        df_features.to_csv(FINAL_CSV, index=False)
-        logger.info(f"Saved final feature matrix to: {FINAL_CSV}")
-        get_feature_extraction_report(df_features, TIME_DOMAIN_FEATURES, execution_time=feature_time)
-        logger.info(f"Time elapsed: {feature_time:.2f}s\n")
+        feature_files = {}
+        
+        for scaler_type, scaled_path in scaled_paths.items():
+            logger.info(f"\n--- Processing {scaler_type.upper()} scaled data ---")
+            start_time = time()
+            
+            # Load scaled windowed data
+            df_scaled_windowed = pd.read_csv(scaled_path)
+            logger.info(f"Loaded {len(df_scaled_windowed)} windows from {scaled_path.name}")
+            
+            try:
+                # Extract features from SCALED data
+                df_features = extract_all_features(
+                    df_scaled_windowed,
+                    features_to_compute=TIME_DOMAIN_FEATURES,
+                    window_samples=WINDOW_SAMPLES,
+                    use_fast=True
+                )
+            except Exception as e:
+                logger.error(f"Feature extraction failed for {scaler_type}: {e}")
+                logger.exception(e)
+                continue
+            
+            feature_time = time() - start_time
+            
+            if df_features.empty:
+                logger.error(f"No features extracted for {scaler_type}!")
+                continue
+            
+            # Save feature matrix
+            feature_output_path = OUTPUT_DIR / f'full_features_{scaler_type}.csv'
+            df_features.to_csv(feature_output_path, index=False)
+            logger.info(f"Saved feature matrix to: {feature_output_path}")
+            feature_files[scaler_type] = feature_output_path
+            
+            get_feature_extraction_report(df_features, TIME_DOMAIN_FEATURES, execution_time=feature_time)
+            logger.info(f"Time elapsed: {feature_time:.2f}s")
         
         # ======================== SUMMARY ========================
-        logger.info("=" * 80)
+        logger.info("\n" + "=" * 80)
         logger.info("PIPELINE EXECUTION SUMMARY")
         logger.info("=" * 80)
         logger.info(f"Raw data samples: {len(df_raw)}")
         logger.info(f"Cleaned data samples: {len(df_cleaned)}")
         logger.info(f"Windows created: {len(df_windowed)}")
-        logger.info(f"Feature matrix shape: {df_features.shape}")
+        logger.info(f"\nScaling methods applied: {len(scaled_paths)}")
+        for scaler_type in scaled_paths.keys():
+            logger.info(f"  - {scaler_type.capitalize()}")
+        logger.info(f"\nFeature matrices generated: {len(feature_files)}")
+        for scaler_type, path in feature_files.items():
+            logger.info(f"  - {scaler_type}: {path.name}")
         logger.info(f"\nOutputs saved:")
         logger.info(f"  - Cleaned data: {CLEANED_CSV}")
         logger.info(f"  - Windowed data: {WINDOWED_CSV}")
-        logger.info(f"  - Feature matrix: {FINAL_CSV}")
+        logger.info(f"  - Scaled windowed data:")
+        for scaler_type, path in scaled_paths.items():
+            logger.info(f"      • {scaler_type}: {path.name}")
+        logger.info(f"  - Feature matrices:")
+        for scaler_type, path in feature_files.items():
+            logger.info(f"      • {scaler_type}: {path.name}")
+        logger.info(f"  - Visualizations: {DATA_DIR}/scaling_comparison_*.png")
         logger.info("=" * 80)
         logger.info("Pipeline completed successfully!\n")
         
