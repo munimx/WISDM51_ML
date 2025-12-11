@@ -118,12 +118,15 @@ def run_pipeline():
             df_features = extract_all_features(
                 df_windowed,
                 features_to_compute=TIME_DOMAIN_FEATURES,
-                window_samples=WINDOW_SAMPLES
+                window_samples=WINDOW_SAMPLES,
+                use_fast=True  # Use optimized vectorized method
             )
         except Exception as e:
             logger.error(f"Feature extraction failed: {e}")
             logger.exception(e)
             return False
+        
+        feature_time = time() - start_time
         
         if df_features.empty:
             logger.error("No features extracted!")
@@ -132,8 +135,8 @@ def run_pipeline():
         # Save final feature matrix
         df_features.to_csv(FINAL_CSV, index=False)
         logger.info(f"Saved final feature matrix to: {FINAL_CSV}")
-        get_feature_extraction_report(df_features, TIME_DOMAIN_FEATURES)
-        logger.info(f"Time elapsed: {time() - start_time:.2f}s\n")
+        get_feature_extraction_report(df_features, TIME_DOMAIN_FEATURES, execution_time=feature_time)
+        logger.info(f"Time elapsed: {feature_time:.2f}s\n")
         
         # ======================== SUMMARY ========================
         logger.info("=" * 80)
